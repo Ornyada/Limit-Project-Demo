@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse,FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse,FileResponse, JSONResponse,RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
@@ -24,9 +24,14 @@ TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 
+
 @app.get("/", include_in_schema=False)
 async def root():
-    return RedirectResponse(url="/docs")
+    try:
+        return RedirectResponse(url="/docs")
+    except Exception as e:
+        return {"error": str(e)}
+
 #app.post use for export data
 @app.post("/upload-stdf/") #/upload-stdf/ is an endpoint which should be at the last of the url fetch in taskpane.js
 async def upload_stdf(files: List[UploadFile] = File(...)):
