@@ -11,7 +11,7 @@ from ezstdf.StdfReader import StdfReader
 app = FastAPI()
 app.add_middleware(#CORS (Cross-Origin Resource Sharing):
     CORSMiddleware,
-    allow_origins=["https://localhost:3000"],# ✅ Allow all origins (only for dev)
+    allow_origins=["*"],# ✅ Allow all origins (only for dev)
     allow_credentials=True,
     allow_methods=["*"],# ✅ Allow all methods ex. GET, POST, PUT
     allow_headers=["*"],# ✅ Allow all headers ex. Content-Type, Authorization
@@ -24,9 +24,9 @@ TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 
-@app.get("/", response_class=HTMLResponse)#app.get use for read data
-async def main(request: Request):
-    return templates.TemplateResponse("upload.html", {"request": request})
+@app.get("/", include_in_schema=False)
+async def root():
+    return RedirectResponse(url="/docs")
 #app.post use for export data
 @app.post("/upload-stdf/") #/upload-stdf/ is an endpoint which should be at the last of the url fetch in taskpane.js
 async def upload_stdf(files: List[UploadFile] = File(...)):
