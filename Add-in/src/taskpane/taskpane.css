@@ -1,0 +1,326 @@
+/* 
+ * Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
+ * See LICENSE in the project root for license information.
+ */
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+}
+
+.ms-welcome__header {
+  padding: 20px;
+  padding-bottom: 10px;
+  padding-top: 10px;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -ms-align-items: center;
+  align-items: center;
+  background-color: #ffffff;
+}
+
+.ms-welcome__main {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-direction: column;
+  flex-direction: column;
+  -ms-flex-wrap: nowrap;
+  flex-wrap: nowrap;
+  -ms-flex: 1 0 0;
+  flex: 1 0 0;
+  padding: 30px;
+  color: #000000;
+}
+
+.ms-welcome__main>h2 {
+  width: 100%;
+  text-align: left;
+  color: #000000;
+}
+
+.ms-welcome__features {
+  list-style-type: none;
+  margin-top: 40px;
+  color: #000000;
+}
+
+.ms-welcome__features.ms-List .ms-ListItem {
+  display: -ms-flexbox;
+  display: flex;
+  color: #ffffff;
+  justify-content: flex-start;
+  text-align: left !important;
+  align-items: flex-start;
+  margin-left: 0 !important;
+}
+
+.ms-welcome__features.ms-List .ms-ListItem>.ms-Icon {
+  margin-right: 10px;
+}
+
+.ms-welcome__action.ms-Button--hero {
+  align-items: flex-end;
+}
+
+.ms-Button.ms-Button--hero .ms-Button-label {
+  color: #0078d7;
+  align-items: flex-end;
+}
+
+.ms-Button.ms-Button--hero:hover .ms-Button-label,
+.ms-Button.ms-Button--hero:focus .ms-Button-label {
+  color: #ed1b1b;
+  cursor: pointer;
+}
+
+b {
+  font-weight: bold;
+}
+
+body {
+  background-color: #131314;
+  background-image: none;
+  background-attachment: scroll;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+.file-upload-container {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-direction: row;
+  flex-direction: row;
+  align-items: flex-end;
+}
+
+.folder-upload-container {
+  align-items: flex-end;
+  
+}
+
+#folderInput,
+#importFolderBtn {
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#fileInput,
+#importDatalogBtn {
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#customConsole {
+  background-color: #ffffff;
+  color: #ffffff;
+  font-family: monospace;
+  padding: 10px;
+  border-radius: 5px;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-top: 10px;
+  border: 1px solid #ffffff;
+}
+
+.mfh-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border: 1.5px solid #1e76e2;
+  border-radius: 4px;
+}
+
+.mfh-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.mfh-list li:hover {
+  background-color: #f3f3f3;
+  color: #428eec;
+  cursor: pointer;
+}
+
+.selected-file {
+  background-color: #ffffff;
+  color: #01d22b;
+}
+
+#consoleOutput {
+  background-color: #ffffff;
+  color: #1e76e2;
+  padding: 10px;
+  height: 200px;
+  overflow-y: auto;
+  font-family: monospace;
+  font-size: 16px;
+  border-radius: 5px;
+}
+
+.feature-row {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-align-items: center;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.feature-row span,
+.feature-row p {
+  margin: 0;
+  -ms-flex: 1;
+  flex: 1;
+}
+
+.feature-row>div {
+  -ms-flex-negative: 0;
+  flex-shrink: 0;
+}
+
+.feature-row input[type="file"],
+.feature-row button {
+  margin-left: 10px;
+}
+
+.mfh-list-inline {
+  display: -ms-flexbox;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.mfh-list-inline .mfh-list {
+  -ms-flex: 1;
+  flex: 1;
+  max-width: 300px;
+}
+
+.feature-box {
+  background-color: #ffffff;
+  border-radius: 10px;
+  padding: 15px 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 1px 3px rgba(255, 255, 255, 0.1);
+}
+
+.file-upload-container,
+.folder-upload-container {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-align-items: center;
+  align-items: center;
+}
+.mfh-list {
+  max-width: 300px;
+  color: #000000;
+  margin: auto;
+}
+
+.ms-font-m {
+  font-size: 16px;
+}
+
+#download-links {
+  color: #ffffff;
+}
+
+.stages-checkbox {
+  background-color: #ffffff;
+  padding: 20px;
+  border-radius: 10px;
+  width: fit-content;
+  font-family: Arial, sans-serif;
+}
+/*checkbox button*/
+.stages-checkbox input[type="checkbox"] {
+  margin-right: 10px;
+}
+/*check box list*/
+.stages-checkbox label {
+  color: #000000;
+}
+
+.stages-checkbox form>* {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+}
+input[type="checkbox"] {
+  accent-color: #1e76e2;
+}
+.stages-compare {
+  width: fit-content;
+}
+.stages-checkbox label:hover,
+.stages-checkbox label:focus{
+  cursor: pointer;
+}
+.stages-checkbox input[type="checkbox"]:hover,
+.stages-checkbox input[type="checkbox"]:focus {
+  cursor: pointer;
+}
+.select-header {
+  font-size: 20px;
+  /* ปรับขนาดตามต้องการ */
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.compare-button-group {
+  display: flex;
+  gap: 10px;
+  /* ระยะห่างระหว่างปุ่ม */
+  margin-top: 10px;
+  justify-content: center;
+  /* หรือใช้ flex-start / flex-end ตามต้องการ */
+}
+.compare-button {
+  border: 2px solid #1e76e2;
+  padding: 10px 20px;
+  text-align: center;
+  cursor: pointer;
+  width: 70px;
+  height: 20px;
+  border-radius: 20px;
+  background-color: white;
+  color: #000000;
+  align-self: center;
+  margin-top: 10px;
+  margin-bottom: 10px;
+
+}
+
+.compare-button:hover,
+.compare-button:focus {
+  background-color: #1e76e2;
+  color: white;
+  cursor: pointer;
+  
+}
+
+#labelList {
+  display: grid;
+    grid-auto-flow: column;
+    /* เรียงจากบนลงล่างก่อน แล้วค่อยไปคอลัมน์ถัดไป */
+    grid-template-rows: repeat(5, auto);
+    /* 5 แถวต่อคอลัมน์ */
+    gap: 10px;
+}
+
+.label-item {
+  white-space: nowrap;
+  font-family: sans-serif;
+  font-size: 20px;
+}
