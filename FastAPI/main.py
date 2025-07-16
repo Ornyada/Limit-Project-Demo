@@ -160,22 +160,21 @@ async def upload_folder(files: List[UploadFile] = File(...)):
 
 @app.get("/process-testtable/")
 async def process_mfh_file(filename: str):
-    # สร้าง temp directory ชั่วคราว
-    with tempfile.TemporaryDirectory() as temp_dir:
-        mfh_path = os.path.join(temp_dir, filename)
+    base_dir = "/tmp/uploads"
+    mfh_path = os.path.join(base_dir, filename)
 
-        # ตรวจสอบว่าไฟล์ MFH มีอยู่จริงหรือไม่
-        if not os.path.exists(mfh_path):
-            raise HTTPException(status_code=404, detail="MFH file not found")
+    if not os.path.exists(mfh_path):
+        raise HTTPException(status_code=404, detail="MFH file not found")
 
-        uploaded_files = {}
-        for root, _, files in os.walk(temp_dir):
-            for f in files:
-                full_path = os.path.join(root, f)
-                rel_path = os.path.relpath(full_path, temp_dir).replace("\\", "/")
-                uploaded_files[rel_path.lower()] = full_path
+    uploaded_files = {}
+    for root, _, files in os.walk(base_dir):
+        for f in files:
+            full_path = os.path.join(root, f)
+            rel_path = os.path.relpath(full_path, base_dir).replace("\\", "/")
+            uploaded_files[rel_path.lower()] = full_path
 
-        results = []
+    results = []
+    try:
         with open(mfh_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
@@ -214,10 +213,12 @@ async def process_mfh_file(filename: str):
                     "path": path,
                     "status": "not found"
                 })
-
-        return JSONResponse(content={"files": results})
-
-
+    finally:
+        try:
+            os.remove(mfh_path)
+        except:
+            pass
+    return JSONResponse(content={"files": results})
 
 @app.post("/process-EY/")
 async def process_EY_file(file: UploadFile = File(...)):
