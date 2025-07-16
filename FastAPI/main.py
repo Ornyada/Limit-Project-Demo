@@ -134,27 +134,22 @@ async def process_selfconverted_datalog_excel(file: UploadFile = File(...)):
 @app.post("/upload-folder/")
 async def upload_folder(files: List[UploadFile] = File(...)):
     uploaded_mfh = []
+    base_dir = "/tmp/uploads" 
+    os.makedirs(base_dir, exist_ok=True)
 
-    # สร้าง temp directory ชั่วคราว
-    with tempfile.TemporaryDirectory() as temp_dir:
-        for file in files:
-            # ใช้ path เดิมที่ได้จาก webkitRelativePath เช่น "limits/data123.csv"
-            relative_path = file.filename.replace("\\", "/")  # รองรับ Windows path
-            full_path = os.path.join(temp_dir, relative_path)
+    for file in files:
+        relative_path = file.filename.replace("\\", "/")
+        full_path = os.path.join(base_dir, relative_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-            # สร้างโฟลเดอร์ย่อยถ้ายังไม่มี
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
 
-            # เขียนไฟล์ลง temp
-            with open(full_path, "wb") as f:
-                shutil.copyfileobj(file.file, f)
+        if relative_path.endswith(".mfh"):
+            uploaded_mfh.append(relative_path)
 
-            # ถ้าเป็น .mfh ให้เก็บชื่อไว้
-            if relative_path.endswith(".mfh"):
-                uploaded_mfh.append(relative_path)
+    return {"mfh_files": uploaded_mfh}
 
-        # คุณสามารถเลือก return path หรือ content ได้ตามต้องการ
-        return {"mfh_files": uploaded_mfh}
 
 
 
