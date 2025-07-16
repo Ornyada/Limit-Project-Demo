@@ -34,36 +34,45 @@ async def root():
 
 #app.post use for export data
 
+
 @app.post("/upload-stdf/")
 async def upload_stdf(files: List[UploadFile] = File(...)):
     results = []
 
     for file in files:
         contents = await file.read()
-        safe_filename = re.sub(r'[^\w\-_\. ]', '_', file.filename)
+        safe_filename = file.filename.replace("\\", "/").split("/")[-1]
 
-        # แปลงไฟล์โดยไม่ต้องเขียนลงดิสก์
-        stdf = StdfReader()
-        stdf.parse_bytes(contents)  # สมมุติว่า parse_bytes รองรับ bytes โดยตรง
+        # สร้างไฟล์ชั่วคราวเพื่อให้ StdfReader อ่านได้
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".stdf") as temp_file:
+            temp_file.write(contents)
+            temp_file_path = temp_file.name
 
-        output_stream = BytesIO()
-        stdf.to_excel(output_stream)
-        output_stream.seek(0)
+        try:
+            stdf = StdfReader()
+            stdf.parse_file(temp_file_path)
 
-        return StreamingResponse(
-            output_stream,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename={safe_filename}.xlsx"}
-        )
+            # แปลงเป็น Excel ลงใน memory
+            output_stream = BytesIO()
+            stdf.to_excel(output_stream)
+            output_stream.seek(0)
+
+            # สร้างชื่อไฟล์ใหม่
+            unique_id = uuid.uuid4().hex
+            output_filename = f"{unique_id}_{safe_filename}.xlsx"
+
+            # ส่งกลับเป็นไฟล์ให้ดาวน์โหลด
+            return StreamingResponse(
+                output_stream,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename={output_filename}"}
+            )
+        finally:
+            os.remove(temp_file_path)  # ลบไฟล์ชั่วคราว
+
+    return {"detail": "No files processed"}
 
 
-#In case we can connect our tool to some cloud server    
-@app.get("/download/{filename}")
-async def download_file(filename: str):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(file_path):
-        return FileResponse(path=file_path, filename=filename)
-    return {"error": "File not found"}
 
 @app.post("/process-self-converted-datalog/")
 async def process_selfconverted_datalog_excel(file: UploadFile = File(...)):
@@ -146,16 +155,6 @@ async def upload_folder(files: List[UploadFile] = File(...)):
         # คุณสามารถเลือก return path หรือ content ได้ตามต้องการ
         return {"mfh_files": uploaded_mfh}
 
-
-
-def try_read_as_excel_then_csv(path, encoding='utf-8'):
-    try:
-        df = pd.read_excel(path, engine='openpyxl')
-        return df.values.tolist(), 'xlsx'
-    except Exception:
-        with open(path, newline='', encoding=encoding) as csvfile:
-            reader = csv.reader(csvfile)
-            return list(reader), 'csv'
 
 
 @app.get("/process-testtable/")
