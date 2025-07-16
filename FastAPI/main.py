@@ -33,34 +33,29 @@ async def root():
         return {"error": str(e)}
 
 #app.post use for export data
-@app.post("/upload-stdf/") #/upload-stdf/ is an endpoint which should be at the last of the url fetch in taskpane.js
+
+@app.post("/upload-stdf/")
 async def upload_stdf(files: List[UploadFile] = File(...)):
-    os.makedirs("temp", exist_ok=True)#create temp folder
-    os.makedirs("output", exist_ok=True)#create output folder
     results = []
 
     for file in files:
         contents = await file.read()
         safe_filename = re.sub(r'[^\w\-_\. ]', '_', file.filename)
-        temp_path = f"temp/{safe_filename}"
 
-        with open(temp_path, "wb") as f:
-            f.write(contents)
-
+        # แปลงไฟล์โดยไม่ต้องเขียนลงดิสก์
         stdf = StdfReader()
-        stdf.parse_file(temp_path)
-        #add UUID to prevent same file name
-        unique_id = uuid.uuid4().hex
-        output_path = f"output/{unique_id}_{safe_filename}.xlsx"
-        stdf.to_excel(output_path)
-        output_filename = os.path.basename(output_path)
-        results.append({
-            "filename": output_filename,
-            "download_url": f"/download/{output_filename}"
-        })
+        stdf.parse_bytes(contents)  # สมมุติว่า parse_bytes รองรับ bytes โดยตรง
 
-    os.remove(temp_path)
-    return {"converted_files": results}
+        output_stream = BytesIO()
+        stdf.to_excel(output_stream)
+        output_stream.seek(0)
+
+        return StreamingResponse(
+            output_stream,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename={safe_filename}.xlsx"}
+        )
+
 
 #In case we can connect our tool to some cloud server    
 @app.get("/download/{filename}")
@@ -125,22 +120,32 @@ async def process_selfconverted_datalog_excel(file: UploadFile = File(...)):
 
 
 
+
 @app.post("/upload-folder/")
 async def upload_folder(files: List[UploadFile] = File(...)):
     uploaded_mfh = []
-    for file in files:
-        # ใช้ path เดิมที่ได้จาก webkitRelativePath เช่น "limits/data123.csv"
-        relative_path = file.filename.replace("\\", "/")  # รองรับ Windows path
-        full_path = os.path.join(TEMP_DIR, relative_path)
-        # สร้างโฟลเดอร์ย่อยถ้ายังไม่มี
-        os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        # เขียนไฟล์ลง temp
-        with open(full_path, "wb") as f:
-            shutil.copyfileobj(file.file, f)
-        # ถ้าเป็น .mfh ให้เก็บชื่อไว้
-        if relative_path.endswith(".mfh"):
-            uploaded_mfh.append(relative_path)
-    return {"mfh_files": uploaded_mfh}
+
+    # สร้าง temp directory ชั่วคราว
+    with tempfile.TemporaryDirectory() as temp_dir:
+        for file in files:
+            # ใช้ path เดิมที่ได้จาก webkitRelativePath เช่น "limits/data123.csv"
+            relative_path = file.filename.replace("\\", "/")  # รองรับ Windows path
+            full_path = os.path.join(temp_dir, relative_path)
+
+            # สร้างโฟลเดอร์ย่อยถ้ายังไม่มี
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            # เขียนไฟล์ลง temp
+            with open(full_path, "wb") as f:
+                shutil.copyfileobj(file.file, f)
+
+            # ถ้าเป็น .mfh ให้เก็บชื่อไว้
+            if relative_path.endswith(".mfh"):
+                uploaded_mfh.append(relative_path)
+
+        # คุณสามารถเลือก return path หรือ content ได้ตามต้องการ
+        return {"mfh_files": uploaded_mfh}
+
 
 
 def try_read_as_excel_then_csv(path, encoding='utf-8'):
@@ -152,59 +157,66 @@ def try_read_as_excel_then_csv(path, encoding='utf-8'):
             reader = csv.reader(csvfile)
             return list(reader), 'csv'
 
+
 @app.get("/process-testtable/")
 async def process_mfh_file(filename: str):
-    mfh_path = os.path.join(TEMP_DIR, filename)
-    if not os.path.exists(mfh_path):
-        raise HTTPException(status_code=404, detail="MFH file not found")
+    # สร้าง temp directory ชั่วคราว
+    with tempfile.TemporaryDirectory() as temp_dir:
+        mfh_path = os.path.join(temp_dir, filename)
 
-    uploaded_files = {}
-    for root, _, files in os.walk(TEMP_DIR):
-        for f in files:
-            full_path = os.path.join(root, f)
-            rel_path = os.path.relpath(full_path, TEMP_DIR).replace("\\", "/")
-            uploaded_files[rel_path.lower()] = full_path
+        # ตรวจสอบว่าไฟล์ MFH มีอยู่จริงหรือไม่
+        if not os.path.exists(mfh_path):
+            raise HTTPException(status_code=404, detail="MFH file not found")
 
-    results = []
-    with open(mfh_path, "r", encoding="utf-8") as f:
-        lines = f.readlines()
+        uploaded_files = {}
+        for root, _, files in os.walk(temp_dir):
+            for f in files:
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(full_path, temp_dir).replace("\\", "/")
+                uploaded_files[rel_path.lower()] = full_path
 
-    for path in lines:
-        path = path.strip().replace("\\", "/")
-        if not path or "," in path:
-            continue
-        if path.lower().startswith("testerfile "):
-            path = path[len("testerfile "):].strip()
+        results = []
+        with open(mfh_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
 
-        matched_path = uploaded_files.get(path.lower())
+        for path in lines:
+            path = path.strip().replace("\\", "/")
+            if not path or "," in path:
+                continue
+            if path.lower().startswith("testerfile "):
+                path = path[len("testerfile "):].strip()
 
-        if not matched_path:
-            for key, full_path in uploaded_files.items():
-                if key.endswith(path.lower()):
-                    matched_path = full_path
-                    break
-        if matched_path and matched_path.endswith(".csv"):
-            try:
-                data, file_type = try_read_as_excel_then_csv(matched_path, encoding="utf-8")
+            matched_path = uploaded_files.get(path.lower())
+
+            if not matched_path:
+                for key, full_path in uploaded_files.items():
+                    if key.endswith(path.lower()):
+                        matched_path = full_path
+                        break
+
+            if matched_path and matched_path.endswith(".csv"):
+                try:
+                    data, file_type = try_read_as_excel_then_csv(matched_path, encoding="utf-8")
+                    results.append({
+                        "path": path,
+                        "status": "ok",
+                        "type": file_type,
+                        "content": data
+                    })
+                except Exception as e:
+                    results.append({
+                        "path": path,
+                        "status": "error",
+                        "error": str(e)
+                    })
+            else:
                 results.append({
                     "path": path,
-                    "status": "ok",
-                    "type": file_type,
-                    "content": data
+                    "status": "not found"
                 })
-            except Exception as e:
-                results.append({
-                    "path": path,
-                    "status": "error",
-                    "error": str(e)
-                })
-        else:
-            results.append({
-                "path": path,
-                "status": "not found"
-            })
 
-    return JSONResponse(content={"files": results})
+        return JSONResponse(content={"files": results})
+
 
 
 @app.post("/process-EY/")
