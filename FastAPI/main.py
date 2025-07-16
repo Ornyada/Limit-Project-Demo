@@ -34,6 +34,14 @@ async def root():
 
 #app.post use for export data
 
+def try_read_as_excel_then_csv(path, encoding='utf-8'):
+    try:
+        df = pd.read_excel(path, engine='openpyxl')
+        return df.values.tolist(), 'xlsx'
+    except Exception:
+        with open(path, newline='', encoding=encoding) as csvfile:
+            reader = csv.reader(csvfile)
+            return list(reader), 'csv'
 
 @app.post("/upload-stdf/")
 async def upload_stdf(files: List[UploadFile] = File(...)):
@@ -151,8 +159,6 @@ async def upload_folder(files: List[UploadFile] = File(...)):
     return {"mfh_files": uploaded_mfh}
 
 
-
-
 @app.get("/process-testtable/")
 async def process_mfh_file(filename: str):
     base_dir = "/tmp/uploads"
@@ -161,6 +167,7 @@ async def process_mfh_file(filename: str):
     if not os.path.exists(mfh_path):
         raise HTTPException(status_code=404, detail="MFH file not found")
 
+    # สร้าง mapping ของไฟล์ทั้งหมดใน base_dir โดยใช้ relative path
     uploaded_files = {}
     for root, _, files in os.walk(base_dir):
         for f in files:
@@ -172,7 +179,6 @@ async def process_mfh_file(filename: str):
     try:
         with open(mfh_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-
         for path in lines:
             path = path.strip().replace("\\", "/")
             if not path or "," in path:
@@ -296,4 +302,6 @@ async def process_EY_file(file: UploadFile = File(...)):
         final_result.extend(stage_entries)
 
     return {"data": final_result}
- 
+
+
+
