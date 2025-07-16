@@ -58,8 +58,9 @@ async def upload_stdf(files: List[UploadFile] = File(...)):
             output_stream.seek(0)
 
             # สร้างชื่อไฟล์ใหม่
-            unique_id = uuid.uuid4().hex
-            output_filename = f"{unique_id}_{safe_filename}.xlsx"
+            safe_filename = file.filename.replace("\\", "/").split("/")[-1] 
+            output_filename = os.path.splitext(safe_filename)[0] + ".xlsx"
+
 
             # ส่งกลับเป็นไฟล์ให้ดาวน์โหลด
             return StreamingResponse(
