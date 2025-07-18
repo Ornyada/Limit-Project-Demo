@@ -183,19 +183,26 @@ async function importFile() {
             await context.sync();
           });*/
           //seperate converted datalog and limit files
-          if (file.name.toLowerCase().endsWith(".stdf.xlsx")) {
-            if (i === file_processed) {
-              file_processed = await uploadSelfConvertedDatalog(file, file_processed);
-              logToConsole("Processed file = %d", file_processed);
-            }
-          } else {
-            logToConsole("EY datalog is importing");
-            if (i === file_processed) {
-              file_processed = await uploadEYdatalog(file, file_processed);
-              logToConsole("Processed file = %d", file_processed);
-            }
-          }
 
+          const reader = new FileReader();
+          reader.onload = async function (e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: "array" });
+            const sheetCount = workbook.SheetNames.length;
+            if (sheetCount > 1) {
+              if (i === file_processed) {
+                file_processed = await uploadSelfConvertedDatalog(file, file_processed);
+                logToConsole("Processed file = %d", file_processed);
+              }
+            } else {
+              logToConsole("EY datalog is importing");
+              if (i === file_processed) {
+                file_processed = await uploadEYdatalog(file, file_processed);
+                logToConsole("Processed file = %d", file_processed);
+              }
+            }
+          };
+          reader.readAsArrayBuffer(file);
           // แสดงชื่อไฟล์และ path ที่นำเข้า
           const importedList = document.getElementById("importedFilesList");
           if (importedList) {
@@ -215,7 +222,11 @@ async function importFile() {
           console.log(`กำลังประมวลผลไฟล์: ${file.name}`);
           logToConsole(`กำลังประมวลผลไฟล์: ${file.name}`);
           document.body.style.cursor = "wait";
-          const response = await fetch("https://127.0.0.1:8000/upload-stdf/", {
+          /*const response = await fetch("https://127.0.0.1:8000/upload-stdf/", {
+            method: "POST",
+            body: formData,
+          });*/
+          const response = await fetch("https://limit-project-demo.onrender.com/upload-stdf/", {
             method: "POST",
             body: formData,
           });
@@ -225,14 +236,23 @@ async function importFile() {
             logToConsole("STDF upload failed:", errorText);
             return;
           }
-          logToConsole("STDF converted successfully");
-          document.body.style.cursor = "default";
-          //เปลี่ยนจาก blob เป็น JSON
-          const result = await response.json();
-          result.converted_files.forEach((file) => {
-            console.log(`Converted file: ${file.filename}`); //check if we get file name back
-            logToConsole(`Converted file: ${file.filename}`);
-          });
+
+          // รับไฟล์เป็น blob
+          const blob = await response.blob();
+          const downloadUrl = window.URL.createObjectURL(blob);
+
+          // ใช้ชื่อไฟล์ต้นฉบับจาก file.name แล้วเปลี่ยนนามสกุลเป็น .xlsx
+          const originalName = file.name.replace(/\.[^/.]+$/, ""); // ตัดนามสกุลเดิมออก
+          const downloadName = `${originalName}.xlsx`;
+
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = downloadName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          window.URL.revokeObjectURL(downloadUrl);
+          logToConsole("STDF converted and downloaded successfully");
 
           //แสดงลิงก์ดาวน์โหลดใน Task Pane
           /*const container = document.getElementById("download-links");
@@ -349,24 +369,24 @@ async function uploadSelfConvertedDatalog(file, file_processed) {
           const product_name_head = sheet.getRange("F1:F1");
           product_name_head.values = [[productName]];
           let Canremove_index = headers.indexOf("Can remove (Y/N)");
-          if(Canremove_index<0){
+          if (Canremove_index < 0) {
             logToConsole("Can't find Can remove col");
             return;
           }
           let Lsl_typ_index = headers.indexOf("Lsl_typ");
-          if(Lsl_typ_index<0){
+          if (Lsl_typ_index < 0) {
             logToConsole("Can't find Lsl_typ col");
             return;
           }
           let Product_count = 0;
-          for(let i = Canremove_index;i<Lsl_typ_index;i++){
-            let cell = usedRange.getCell(0,i);
-            if(!isNaN(cell)||cell!==""){
+          for (let i = Canremove_index; i < Lsl_typ_index; i++) {
+            let cell = usedRange.getCell(0, i);
+            if (!isNaN(cell) || cell !== "") {
               Product_count++;
             }
           }
           const colors = ["#C6EFCE", "#FFEB9C", "#FFC7CE", "#D9E1F2"];
-          const color = colors[Product_count%4];
+          const color = colors[Product_count % 4];
           product_name_head.format.fill.color = color;
           //add stage
           const stage_name_head = sheet.getRange("F2:F2");
@@ -407,295 +427,318 @@ async function uploadSelfConvertedDatalog(file, file_processed) {
         masterSheet.activate();
         console.log("Completely added product name and stage");
         logToConsole("Completely added product name and stage");
-        return fetch("https://127.0.0.1:8000/process-self-converted-datalog/", {
-          method: "POST",
-          body: formData,
-        })
-          .then((res) => res.json())
-          .then((data) => {
-            let TestData = data.test_data;
-            if (TestData !== null) {
-              logToConsole("process-datalog-excel fetched successfully");
-            }
-            Excel.run(async (context) => {
-              const sheet = context.workbook.worksheets.getItem("Masterfile");
-              let usedRange = sheet.getUsedRange();
-              usedRange.load(["rowCount", "columnCount"]);
-              await context.sync();
+        return (
+          /*fetch("https://127.0.0.1:8000/process-self-converted-datalog/", {
+            method: "POST",
+            body: formData,
+          })*/
+          fetch("https://limit-project-demo.onrender.com/process-self-converted-datalog/", {
+            method: "POST",
+            body: formData,
+          })
+            //https://limit-project-demo.onrender.com
+            .then((res) => res.json())
+            .then((data) => {
+              let TestData = data.test_data;
+              if (TestData !== null) {
+                logToConsole("process-datalog-excel fetched successfully");
+              }
+              Excel.run(async (context) => {
+                const sheet = context.workbook.worksheets.getItem("Masterfile");
+                let usedRange = sheet.getUsedRange();
+                usedRange.load(["rowCount", "columnCount"]);
+                await context.sync();
 
-              let chunkSize = 1000;
-              let totalRows = usedRange.rowCount;
-              let totalCols = usedRange.columnCount;
-              let allValues = [];
-              for (let startRow = 0; startRow < totalRows; startRow += chunkSize) {
-                const rowCount = Math.min(chunkSize, totalRows - startRow);
-                const range = sheet.getRangeByIndexes(startRow, 0, rowCount, totalCols);
-                range.load("values");
-                await context.sync(); // รวมข้อมูลเข้า allValues
+                let chunkSize = 1000;
+                let totalRows = usedRange.rowCount;
+                let totalCols = usedRange.columnCount;
+                let allValues = [];
+                for (let startRow = 0; startRow < totalRows; startRow += chunkSize) {
+                  const rowCount = Math.min(chunkSize, totalRows - startRow);
+                  const range = sheet.getRangeByIndexes(startRow, 0, rowCount, totalCols);
+                  range.load("values");
+                  await context.sync(); // รวมข้อมูลเข้า allValues
 
-                allValues = allValues.concat(range.values);
-              }
-              let headers = allValues[0];
+                  allValues = allValues.concat(range.values);
+                }
+                let headers = allValues[0];
 
-              let TestnumColIndex = headers.indexOf("Test number");
-              const SuiteColIndex = headers.indexOf("Suite name");
-              const TestColIndex = headers.indexOf("Test name");
-              if (TestnumColIndex === -1) {
-                console.error("ไม่พบคอลัมน์ Test number");
-                logToConsole("ไม่พบคอลัมน์ Test number");
-                return;
-              }
-              if (SuiteColIndex === -1) {
-                console.error("ไม่พบคอลัมน์ Suite name");
-                logToConsole("ไม่พบคอลัมน์ Suite name");
-                return;
-              }
-              if (TestColIndex === -1) {
-                console.error("ไม่พบคอลัมน์ Test name");
-                logToConsole("ไม่พบคอลัมน์ Test name");
-                return;
-              }
+                let TestnumColIndex = headers.indexOf("Test number");
+                const SuiteColIndex = headers.indexOf("Suite name");
+                const TestColIndex = headers.indexOf("Test name");
+                if (TestnumColIndex === -1) {
+                  console.error("ไม่พบคอลัมน์ Test number");
+                  logToConsole("ไม่พบคอลัมน์ Test number");
+                  return;
+                }
+                if (SuiteColIndex === -1) {
+                  console.error("ไม่พบคอลัมน์ Suite name");
+                  logToConsole("ไม่พบคอลัมน์ Suite name");
+                  return;
+                }
+                if (TestColIndex === -1) {
+                  console.error("ไม่พบคอลัมน์ Test name");
+                  logToConsole("ไม่พบคอลัมน์ Test name");
+                  return;
+                }
 
-              const testNameRange = sheet.getRangeByIndexes(
-                2,
-                TestColIndex,
-                allValues.length - 2,
-                1
-              );
-              testNameRange.load("values");
-              await context.sync();
-              logToConsole("Determined Allcolindex and testNamerange");
-              let existingTestNames = [];
-              try {
-                existingTestNames = testNameRange.values.flat().filter((v) => v !== "");
-              } catch (err) {
-                console.error("เกิดปัญหาขณะอ่าน testNameRange.values:", err);
-                logToConsole("เกิดปัญหาขณะอ่าน testNameRange.values: %s", err.message || err);
-                return;
-              }
-              if (!Array.isArray(TestData)) {
-                console.error("TestData ไม่ใช่ array หรือยังไม่ได้โหลด");
-                logToConsole("TestData ไม่ใช่ array หรือยังไม่ได้โหลด");
-                return;
-              }
-              let newTests = [];
-              try {
-                newTests = TestData.filter((item) => !existingTestNames.includes(item.test_name));
-              } catch (err) {
-                console.error("เกิดปัญหาขณะ TestData.filter", err);
-                logToConsole("เกิดปัญหาขณะ TestData.filter: %s", err.message || err);
-                return;
-              }
-              if (!Array.isArray(allValues)) {
-                console.error("allValues ไม่ใช่ array");
-                logToConsole("allValues ไม่ใช่ array");
-                return;
-              }
-              let startRow = allValues.length;
-              let suiteRange, testRange;
-              let suiteValues = [];
-              let testValues = [];
-              try {
-                if (newTests.length > 0) {
-                  const testNumbers = newTests.map((t) => [t?.test_number ?? ""]);
-                  logToConsole("newTests.length = %d", newTests.length);
-                  // เขียน test numbers
-                  if (TestnumColIndex === -1) {
-                    logToConsole("ไม่พบคอลัมน์ Test number ใน headers");
-                    return;
+                const testNameRange = sheet.getRangeByIndexes(
+                  2,
+                  TestColIndex,
+                  allValues.length - 2,
+                  1
+                );
+                testNameRange.load("values");
+                await context.sync();
+                logToConsole("Determined Allcolindex and testNamerange");
+                let existingTestNames = [];
+                try {
+                  existingTestNames = testNameRange.values.flat().filter((v) => v !== "");
+                } catch (err) {
+                  console.error("เกิดปัญหาขณะอ่าน testNameRange.values:", err);
+                  logToConsole("เกิดปัญหาขณะอ่าน testNameRange.values: %s", err.message || err);
+                  return;
+                }
+                if (!Array.isArray(TestData)) {
+                  console.error("TestData ไม่ใช่ array หรือยังไม่ได้โหลด");
+                  logToConsole("TestData ไม่ใช่ array หรือยังไม่ได้โหลด");
+                  return;
+                }
+                let newTests = [];
+                try {
+                  newTests = TestData.filter((item) => !existingTestNames.includes(item.test_name));
+                } catch (err) {
+                  console.error("เกิดปัญหาขณะ TestData.filter", err);
+                  logToConsole("เกิดปัญหาขณะ TestData.filter: %s", err.message || err);
+                  return;
+                }
+                if (!Array.isArray(allValues)) {
+                  console.error("allValues ไม่ใช่ array");
+                  logToConsole("allValues ไม่ใช่ array");
+                  return;
+                }
+                let startRow = allValues.length;
+                let suiteRange, testRange;
+                let suiteValues = [];
+                let testValues = [];
+                try {
+                  if (newTests.length > 0) {
+                    const testNumbers = newTests.map((t) => [t?.test_number ?? ""]);
+                    logToConsole("newTests.length = %d", newTests.length);
+                    // เขียน test numbers
+                    if (TestnumColIndex === -1) {
+                      logToConsole("ไม่พบคอลัมน์ Test number ใน headers");
+                      return;
+                    }
+                    const writeRange = sheet.getRangeByIndexes(
+                      startRow,
+                      TestnumColIndex,
+                      newTests.length,
+                      1
+                    );
+                    writeRange.values = testNumbers;
+                    await context.sync();
+                    // เขียน suite name และ test name
+                    suiteRange = sheet.getRangeByIndexes(
+                      startRow,
+                      SuiteColIndex,
+                      newTests.length,
+                      1
+                    );
+                    testRange = sheet.getRangeByIndexes(startRow, TestColIndex, newTests.length, 1);
+                    suiteValues = newTests.map((t) => [t.suite_name]);
+                    testValues = newTests.map((t) => [t.test_name]);
+                    suiteRange.values = suiteValues;
+                    testRange.values = testValues;
+                    await context.sync();
+                  } else {
+                    logToConsole("There's no new tests");
                   }
-                  const writeRange = sheet.getRangeByIndexes(
-                    startRow,
-                    TestnumColIndex,
-                    newTests.length,
-                    1
-                  );
-                  writeRange.values = testNumbers;
-                  await context.sync();
-                  // เขียน suite name และ test name
-                  suiteRange = sheet.getRangeByIndexes(startRow, SuiteColIndex, newTests.length, 1);
-                  testRange = sheet.getRangeByIndexes(startRow, TestColIndex, newTests.length, 1);
-                  suiteValues = newTests.map((t) => [t.suite_name]);
-                  testValues = newTests.map((t) => [t.test_name]);
-                  suiteRange.values = suiteValues;
-                  testRange.values = testValues;
-                  await context.sync();
-                } else {
-                  logToConsole("There's no new tests");
+                } catch (err) {
+                  console.error("เกิดปัญหาในช่วงสร้าง newTests:", err);
+                  logToConsole("เกิดปัญหาในช่วงสร้าง newTests: %s", err.message || err);
                 }
-              } catch (err) {
-                console.error("เกิดปัญหาในช่วงสร้าง newTests:", err);
-                logToConsole("เกิดปัญหาในช่วงสร้าง newTests: %s", err.message || err);
-              }
-              // อ่านไฟล์ Excel ที่อัปโหลดเพื่อดึงชื่อ product
-              const data = new Uint8Array(e.target.result);
-              const workbook = XLSX.read(data, { type: "array" });
-              const mirSheet = workbook.Sheets["mir"];
-              const mirData = XLSX.utils.sheet_to_json(mirSheet, { defval: "" });
-              const productName = mirData[0]?.["JOB_NAM"]?.trim();
-              let productColIndex = headers.indexOf(productName);
-              if (productColIndex === -1) {
-                console.error("ไม่พบชื่อ product ใน header:", productName);
-                logToConsole("ไม่พบชื่อ product ใน header:", productName);
-                return;
-              }
-              Allproduct_stage.push({
-                name: productName,
-                stage: stagename,
-              });
-              let stage_count = Allproduct_stage.filter((item) => item.name === productName).length;
-              let stage_array_index;
-              let stage_range = sheet.getRangeByIndexes(1, productColIndex, 1, stage_count);
-              stage_range.load("values");
-              await context.sync();
-              for (let i = 0; i <= stage_count; i++) {
-                console.log("stage %d = %s", i, stage_range.values[0][i]);
-                if (stage_range.values[0][i] === stagename) {
-                  stage_array_index = i;
-                  break;
+                // อ่านไฟล์ Excel ที่อัปโหลดเพื่อดึงชื่อ product
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+                const mirSheet = workbook.Sheets["mir"];
+                const mirData = XLSX.utils.sheet_to_json(mirSheet, { defval: "" });
+                const productName = mirData[0]?.["JOB_NAM"]?.trim();
+                let productColIndex = headers.indexOf(productName);
+                if (productColIndex === -1) {
+                  console.error("ไม่พบชื่อ product ใน header:", productName);
+                  logToConsole("ไม่พบชื่อ product ใน header:", productName);
+                  return;
                 }
-              }
-
-              if (stage_array_index === undefined) {
-                console.error("ไม่พบ stage name ใน column:", stagename);
-                logToConsole("ไม่พบ stage name ใน column:", stagename);
-              }
-              console.log(
-                "productColIndex: %d, stage_count: %d, stageArrayIndex: %d ",
-                productColIndex,
-                stage_count,
-                stage_array_index
-              );
-              logToConsole(
-                "productColIndex: %d, stage_count: %d, stageArrayIndex: %d ",
-                productColIndex,
-                stage_count,
-                stage_array_index
-              );
-
-              usedRange = sheet.getUsedRange();
-              await context.sync();
-              /*usedRange.load("values");
-              await context.sync();*/
-              usedRange.load(["rowCount", "columnCount"]);
-              await context.sync();
-              totalRows = usedRange.rowCount;
-              totalCols = usedRange.columnCount;
-              allValues = [];
-              for (let startRow = 0; startRow < totalRows; startRow += chunkSize) {
-                const rowCount = Math.min(chunkSize, totalRows - startRow);
-                const range = sheet.getRangeByIndexes(startRow, 0, rowCount, totalCols);
-                range.load("values");
-                await context.sync(); // รวมข้อมูลเข้า allValues
-
-                allValues = allValues.concat(range.values);
-              }
-              headers = allValues[0];
-
-              // ดึง test name ทั้งหมดใน Excel
-              const testNameRangeAll = sheet.getRangeByIndexes(
-                2,
-                TestColIndex,
-                allValues.length - 2,
-                1
-              );
-              testNameRangeAll.load("values");
-              await context.sync();
-              // สร้าง YNValues โดยแมปจาก test_name -> YN_check
-              const allTestNames = testNameRangeAll.values.map((row) => row[0]);
-              logToConsole("allTestNames length : %d", allTestNames.length);
-              let YNValues = [];
-              try {
-                YNValues = allTestNames.map((testName) => {
-                  const match = TestData.find((item) => item.test_name === testName);
-                  return [match ? match.YN_check : ""];
+                Allproduct_stage.push({
+                  name: productName,
+                  stage: stagename,
                 });
-              } catch (err) {
-                console.error("เกิดปัญหาในช่วงสร้าง YNValues:", err);
-                logToConsole("เกิดปัญหาในช่วงสร้าง YNValues: %s", err.message || err);
-              }
-              logToConsole("YNcolIndex : %d", productColIndex + stage_array_index);
-              let YNRange = sheet.getRangeByIndexes(
-                2,
-                productColIndex + stage_array_index,
-                YNValues.length,
-                1
-              );
-              YNRange.load("values");
-              await context.sync();
-
-              if (YNValues.length === 0) {
-                console.warn("ไม่มีข้อมูล Y/N check ที่จะเขียน");
-                logToConsole("ไม่มีข้อมูล Y/N check ที่จะเขียน");
-              } else {
-                console.log("YN.length of %s %s is %d", productName, stagename, YNValues.length);
-                logToConsole("YN.length of %s %s is %d", productName, stagename, YNValues.length);
-              }
-              YNRange.values = YNValues;
-              await context.sync();
-              // loop for add green color and add N for null cell (not yet)
-              const IsUsedIndex = headers.indexOf("Is used (Y/N)");
-              let IsUsedDataRange = sheet.getRangeByIndexes(
-                2,
-                IsUsedIndex,
-                YNRange.values.length,
-                1
-              );
-              IsUsedDataRange.load("values");
-              await context.sync();
-              let IsUsedData = IsUsedDataRange.values;
-
-              // ถ้า IsUsedData ยังไม่มีข้อมูล ให้สร้าง array เปล่าขึ้นมา ไม่งั้นถ้ามันเป็นข้อมูล undefine มันจะ error
-              if (!Array.isArray(IsUsedData) || IsUsedData.length === 0) {
-                IsUsedData = Array.from({ length: YNRange.values.length }, () => [""]);
-              }
-
-              for (let i = 0; i < YNRange.values.length; i++) {
-                if (YNRange.values[i][0] === "Y") {
-                  if (IsUsedData[i][0] === "Partial" || IsUsedData[i][0] === "No") {
-                    IsUsedData[i][0] = "Partial";
+                let stage_count = Allproduct_stage.filter(
+                  (item) => item.name === productName
+                ).length;
+                let stage_array_index;
+                let stage_range = sheet.getRangeByIndexes(1, productColIndex, 1, stage_count);
+                stage_range.load("values");
+                await context.sync();
+                for (let i = 0; i <= stage_count; i++) {
+                  console.log("stage %d = %s", i, stage_range.values[0][i]);
+                  if (stage_range.values[0][i] === stagename) {
+                    stage_array_index = i;
+                    break;
                   }
-                  if (IsUsedData[i][0] === "No") {
-                    IsUsedData[i][0] = "Partial";
-                  } else IsUsedData[i][0] = "All";
-                } else {
-                  if (IsUsedData[i][0] === "All" || IsUsedData[i][0] === "Partial") {
-                    IsUsedData[i][0] = "Partial";
-                  } else IsUsedData[i][0] = "No";
                 }
-              }
-              IsUsedDataRange.values = IsUsedData;
-              await context.sync();
-              //conditional formatting color
-              const conditionalFormat = YNRange.conditionalFormats.add(
-                Excel.ConditionalFormatType.containsText
-              );
-              conditionalFormat.textComparison.format.fill.color = "#C6EFCE";
-              conditionalFormat.textComparison.rule = {
-                operator: Excel.ConditionalTextOperator.contains,
-                text: "Y",
-              };
-              const IsUsedkeywords = ["All", "Partial"];
-              for (const word of IsUsedkeywords) {
-                const conditionalFormat = IsUsedDataRange.conditionalFormats.add(
+
+                if (stage_array_index === undefined) {
+                  console.error("ไม่พบ stage name ใน column:", stagename);
+                  logToConsole("ไม่พบ stage name ใน column:", stagename);
+                }
+                console.log(
+                  "productColIndex: %d, stage_count: %d, stageArrayIndex: %d ",
+                  productColIndex,
+                  stage_count,
+                  stage_array_index
+                );
+                logToConsole(
+                  "productColIndex: %d, stage_count: %d, stageArrayIndex: %d ",
+                  productColIndex,
+                  stage_count,
+                  stage_array_index
+                );
+
+                usedRange = sheet.getUsedRange();
+                await context.sync();
+                /*usedRange.load("values");
+              await context.sync();*/
+                usedRange.load(["rowCount", "columnCount"]);
+                await context.sync();
+                totalRows = usedRange.rowCount;
+                totalCols = usedRange.columnCount;
+                allValues = [];
+                for (let startRow = 0; startRow < totalRows; startRow += chunkSize) {
+                  const rowCount = Math.min(chunkSize, totalRows - startRow);
+                  const range = sheet.getRangeByIndexes(startRow, 0, rowCount, totalCols);
+                  range.load("values");
+                  await context.sync(); // รวมข้อมูลเข้า allValues
+
+                  allValues = allValues.concat(range.values);
+                }
+                headers = allValues[0];
+
+                // ดึง test name ทั้งหมดใน Excel
+                const testNameRangeAll = sheet.getRangeByIndexes(
+                  2,
+                  TestColIndex,
+                  allValues.length - 2,
+                  1
+                );
+                testNameRangeAll.load("values");
+                await context.sync();
+                // สร้าง YNValues โดยแมปจาก test_name -> YN_check
+                const allTestNames = testNameRangeAll.values.map((row) => row[0]);
+                logToConsole("allTestNames length : %d", allTestNames.length);
+                let YNValues = [];
+                try {
+                  YNValues = allTestNames.map((testName) => {
+                    const match = TestData.find((item) => item.test_name === testName);
+                    return [match ? match.YN_check : ""];
+                  });
+                } catch (err) {
+                  console.error("เกิดปัญหาในช่วงสร้าง YNValues:", err);
+                  logToConsole("เกิดปัญหาในช่วงสร้าง YNValues: %s", err.message || err);
+                }
+                logToConsole("YNcolIndex : %d", productColIndex + stage_array_index);
+                let YNRange = sheet.getRangeByIndexes(
+                  2,
+                  productColIndex + stage_array_index,
+                  YNValues.length,
+                  1
+                );
+                YNRange.load("values");
+                await context.sync();
+
+                if (YNValues.length === 0) {
+                  console.warn("ไม่มีข้อมูล Y/N check ที่จะเขียน");
+                  logToConsole("ไม่มีข้อมูล Y/N check ที่จะเขียน");
+                } else {
+                  console.log("YN.length of %s %s is %d", productName, stagename, YNValues.length);
+                  logToConsole("YN.length of %s %s is %d", productName, stagename, YNValues.length);
+                }
+                YNRange.values = YNValues;
+                await context.sync();
+                // loop for add green color and add N for null cell (not yet)
+                const IsUsedIndex = headers.indexOf("Is used (Y/N)");
+                let IsUsedDataRange = sheet.getRangeByIndexes(
+                  2,
+                  IsUsedIndex,
+                  YNRange.values.length,
+                  1
+                );
+                IsUsedDataRange.load("values");
+                await context.sync();
+                let IsUsedData = IsUsedDataRange.values;
+
+                // ถ้า IsUsedData ยังไม่มีข้อมูล ให้สร้าง array เปล่าขึ้นมา ไม่งั้นถ้ามันเป็นข้อมูล undefine มันจะ error
+                if (!Array.isArray(IsUsedData) || IsUsedData.length === 0) {
+                  IsUsedData = Array.from({ length: YNRange.values.length }, () => [""]);
+                }
+
+                for (let i = 0; i < YNRange.values.length; i++) {
+                  if (YNRange.values[i][0] === "Y") {
+                    if (IsUsedData[i][0] === "Partial" || IsUsedData[i][0] === "No") {
+                      IsUsedData[i][0] = "Partial";
+                    }
+                    if (IsUsedData[i][0] === "No") {
+                      IsUsedData[i][0] = "Partial";
+                    } else IsUsedData[i][0] = "All";
+                  } else {
+                    if (IsUsedData[i][0] === "All" || IsUsedData[i][0] === "Partial") {
+                      IsUsedData[i][0] = "Partial";
+                    } else IsUsedData[i][0] = "No";
+                  }
+                }
+                IsUsedDataRange.values = IsUsedData;
+                await context.sync();
+                //conditional formatting color
+                const conditionalFormat = YNRange.conditionalFormats.add(
                   Excel.ConditionalFormatType.containsText
                 );
                 conditionalFormat.textComparison.format.fill.color = "#C6EFCE";
                 conditionalFormat.textComparison.rule = {
                   operator: Excel.ConditionalTextOperator.contains,
-                  text: word,
+                  text: "Y",
                 };
-              }
+                const IsUsedkeywords = ["All", "Partial"];
+                const colors = ["#C6EFCE", "#FFEB9C"];
+                for (let i = IsUsedDataRange.conditionalFormats.count - 1; i >= 0; i--) {
+                  IsUsedDataRange.conditionalFormats.getItemAt(i).delete();
+                }
+                await context.sync();
+                for (let i = 0; i < IsUsedkeywords.length; i++) {
+                  const word = IsUsedkeywords[i];
+                  const color = colors[i];
+              
+                  const conditionalFormat = IsUsedDataRange.conditionalFormats.add(
+                    Excel.ConditionalFormatType.containsText
+                  );
+                  conditionalFormat.textComparison.format.fill.color = color;
+                  conditionalFormat.textComparison.rule = {
+                    operator: Excel.ConditionalTextOperator.contains,
+                    text: word,
+                  };
+                }
 
-              await context.sync();
 
-              console.log("Finished processing one file");
-              logToConsole("Finished processing one file");
-              file_processed++;
-              resolve(file_processed);
-              document.body.style.cursor = "default";
-            });
-          });
+                await context.sync();
+
+                console.log("Finished processing one file");
+                logToConsole("Finished processing one file");
+                file_processed++;
+                resolve(file_processed);
+                document.body.style.cursor = "default";
+              });
+            })
+        );
       });
     };
     reader.onerror = reject;
@@ -712,12 +755,15 @@ async function uploadEYdatalog(file, file_processed) {
       console.log(`Uploading Excel Datalog to API: ${file.name}`);
       logToConsole(`Uploading Excel Datalog to API: ${file.name}`);
       const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: "array" });
-      //const EYsheet = workbook.Sheets[workbook.SheetNames[0]];
-      const response = await fetch("https://localhost:8000/process-EY/", {
+      /*const response = await fetch("https://localhost:8000/process-EY/", {
+        method: "POST",
+        body: formData,
+      });*/
+      const response = await fetch("https://limit-project-demo.onrender.com/process-EY/", {
         method: "POST",
         body: formData,
       });
+
       /*{ result will look like this
           "data": [
           {
@@ -799,7 +845,11 @@ async function importFolder(formData) {
   await Excel.run(async (context) => {
     document.body.style.cursor = "wait";
     // 1. อัปโหลดไฟล์ทั้งหมดไปยัง Web API
-    const response = await fetch("https://localhost:8000/upload-folder/", {
+    /*const response = await fetch("https://localhost:8000/upload-folder/", {
+      method: "POST",
+      body: formData,
+    });*/
+    const response = await fetch("https://limit-project-demo.onrender.com/upload-folder/", {
       method: "POST",
       body: formData,
     });
@@ -870,9 +920,15 @@ async function importFolder(formData) {
         // เพิ่ม class ให้กับรายการที่ถูกคลิก
         li.classList.add("selected-file");
 
-        const res = await fetch(
+        /*const res = await fetch(
           `https://localhost:8000/process-testtable/?filename=${encodeURIComponent(fileName)}`
+        );*/
+        const res = await fetch(
+          `https://limit-project-demo.onrender.com/process-testtable/?filename=${encodeURIComponent(
+            fileName
+          )}`
         );
+        //https://limit-project-demo.onrender.com
         if (!res.ok) {
           const container = document.getElementById("download-links");
           container.innerHTML = `<p style="color:red;">Failed to process ${fileName}</p>`;
@@ -2329,27 +2385,39 @@ async function YN(data, productName, stagename) {
     }
     IsUsedDataRange.values = IsUsedData;
     await context.sync();
-  //conditional formatting color
-  const conditionalFormat = YNRange.conditionalFormats.add(
-    Excel.ConditionalFormatType.containsText
-  );
-  conditionalFormat.textComparison.format.fill.color = "#C6EFCE";
-  conditionalFormat.textComparison.rule = {
-    operator: Excel.ConditionalTextOperator.contains,
-    text: "Y",
-  };
-  const IsUsedkeywords = ["All", "Partial"];
-    for (const word of IsUsedkeywords) {
+    //conditional formatting color
+    let conditionalFormat = YNRange.conditionalFormats.add(
+      Excel.ConditionalFormatType.containsText
+    );
+    conditionalFormat.textComparison.format.fill.color = "#C6EFCE";
+    conditionalFormat.textComparison.rule = {
+      operator: Excel.ConditionalTextOperator.contains,
+      text: "Y",
+    };
+    IsUsedDataRange.conditionalFormats.load("count");
+    await context.sync();
+
+    for (let i = IsUsedDataRange.conditionalFormats.count - 1; i >= 0; i--) {
+      IsUsedDataRange.conditionalFormats.getItemAt(i).delete();
+    }
+    await context.sync();
+    const IsUsedkeywords = ["Partial", "All"];
+    const colors = ["#FFEB9C", "#C6EFCE"];
+
+    for (let i = 0; i < IsUsedkeywords.length; i++) {
+      const word = IsUsedkeywords[i];
+      const color = colors[i];
+
       const conditionalFormat = IsUsedDataRange.conditionalFormats.add(
         Excel.ConditionalFormatType.containsText
       );
-      conditionalFormat.textComparison.format.fill.color = "#C6EFCE";
+      conditionalFormat.textComparison.format.fill.color = color;
       conditionalFormat.textComparison.rule = {
         operator: Excel.ConditionalTextOperator.contains,
         text: word,
       };
     }
-  
+    
     await context.sync();
   });
 }
